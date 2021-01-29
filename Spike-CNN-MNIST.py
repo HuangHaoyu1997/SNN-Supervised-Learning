@@ -104,9 +104,12 @@ for epoch in range(args.epochs):
             print ('Epoch [%d/%d], Step [%d/%d], Loss: %.5f'%(epoch+1, args.epochs, i+1, len(train_dataset)//args.batch_size,running_loss))
             running_loss = 0
     print('Time elasped:', time.time()-start_time)
+    loss_train_record.append(running_loss/(i+1))
+
     # testing 
     correct = 0
     total = 0
+    running_loss = 0
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(test_loader):
             inputs = inputs.to(device)
@@ -115,6 +118,7 @@ for epoch in range(args.epochs):
             labels_ = torch.zeros(args.batch_size, 10).scatter_(1, targets.view(-1, 1), 1)
             # loss = -(outputs.cpu()*labels_).sum()
             loss = criterion(outputs.cpu(), labels_)
+            running_loss += loss.item()
             _, predicted = outputs.cpu().max(1)
             
             total += float(targets.size(0))
@@ -125,6 +129,7 @@ for epoch in range(args.epochs):
     print('Epoch: %d,Testing acc:%.3f'%(epoch+1,100*correct/total))
     acc = 100. * float(correct) / float(total)
     acc_record.append(acc)
+    loss_test_record.append(running_loss / (batch_idx + 1)) # 测试集上的平均loss
     # 调整学习率
     if args.scheduler == 'cos':
         CosineLR.step()
@@ -139,8 +144,23 @@ for epoch in range(args.epochs):
             'acc': acc,
             'epoch': epoch,
             'acc_record': acc_record,
+            'test_loss': loss_test_record,
+            'train_loss': loss_train_record
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
         torch.save(state, './checkpoint/ckpt_' + args.ckpt_name + '.t7')
 
+
+# acc_record
+plt.figure()
+plt.plot(np.array(acc_record),linewidth = 2,label = 'acc')
+# train_loss
+plt.figure()
+plt.plot(np.array(loss_train_record),linewidth = 2, label = 'train_loss' )
+# test_loss
+plt.figure()
+plt.plot(np.array(loss_test_record),linewidth = 2,label = 'test_loss')
+plt.pause(5)
+print('training complete')
+torch.save(state, './checkpoint/ckpt' + args.ckpt_name + '.t7')
